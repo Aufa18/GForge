@@ -1,11 +1,15 @@
 import * as React from "react";
-import { StyleSheet, View } from "react-native";
+import { Text, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { Colors } from "../styles/colors";
 import { Coordinate, Direction } from "../types/types";
 import Snake from "./Snake";
 import { checkGameOver } from "../utils/checkGameOver";
+import Food from "./Food";
+import { checkEatsFood } from "../utils/checkEatsFood";
+import { randomFoodPosition } from "../utils/randomFoodPosition";
+import Header from "./Header";
 
 const SNAKE_INITIAL_POSITION = [{ x: 5, y: 5 }];
 const FOOD_INITIAL_POSITION = { x: 5, y: 20 };
@@ -21,13 +25,14 @@ export default function Game() {
   const [food, setFood] = React.useState<Coordinate>(FOOD_INITIAL_POSITION);
   const [isGameOver, setIsGameOver] = React.useState<boolean>(false);
   const [isPaused, setIsPaused] = React.useState<boolean>(false);
+  const [score, setScore] = React.useState<number>(0);
 
   React.useEffect(() => {
     if (!isGameOver) {
-        const intervalId = setInterval(() => {
-            !isPaused && moveSnake();
-        }, MOVE_INTERVAL);
-        return () => clearInterval(intervalId);
+      const intervalId = setInterval(() => {
+        !isPaused && moveSnake();
+      }, MOVE_INTERVAL);
+      return () => clearInterval(intervalId);
     }
   }, [snake, isGameOver, isPaused]);
 
@@ -36,8 +41,8 @@ export default function Game() {
     const newHead = { ...snakeHead }; // creating a copy
 
     if (checkGameOver(snakeHead, GAME_BOUNDS)) {
-        setIsGameOver((prev) => !prev);
-        return;
+      setIsGameOver((prev) => !prev);
+      return;
     }
 
     switch (direction) {
@@ -57,10 +62,13 @@ export default function Game() {
         break;
     }
 
-    // if eats food
-    // grow snake
-
-    setSnake([newHead, ...snake.slice(0, -1)]);
+    if (checkEatsFood(newHead, food, 2)) {
+      setFood(randomFoodPosition(GAME_BOUNDS.xMax, GAME_BOUNDS.yMax));
+      setSnake([newHead, ...snake]);
+      setScore(score + SCORE_INCREMENT);
+    } else {
+      setSnake([newHead, ...snake.slice(0, -1)]);
+    }
   };
 
   const panGesture = Gesture.Pan().onEnd((event) => {
@@ -81,11 +89,40 @@ export default function Game() {
     }
   });
 
+  const reloadGame = () => {
+    setSnake(SNAKE_INITIAL_POSITION);
+    setFood(FOOD_INITIAL_POSITION);
+    setIsGameOver(false);
+    setScore(0);
+    setDirection(Direction.Right);
+    setIsPaused(false);
+  };
+
+  const pauseGame = () => {
+    setIsPaused(!isPaused);
+  };
+
   return (
     <GestureDetector gesture={panGesture}>
       <SafeAreaView style={styles.container}>
+        <Header
+          isPaused={isPaused}
+          pauseGame={pauseGame}
+          reloadGame={reloadGame}
+        >
+          <Text
+            style={{
+              fontSize: 22,
+              fontWeight: "bold",
+              color: Colors.primary,
+            }}
+          >
+            {score}
+          </Text>
+        </Header>
         <View style={styles.boundaries}>
           <Snake snake={snake} />
+          <Food x={food.x} y={food.y} />
         </View>
       </SafeAreaView>
     </GestureDetector>
